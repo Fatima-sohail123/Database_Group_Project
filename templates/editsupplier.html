@@ -4,27 +4,22 @@
     <title>Edit Supplier</title>
 </head>
 <body>
+    <h1>Edit Supplier</h1>
+    <a href="/suppliers">Back to Suppliers</a>
 
-<!-- Page title -->
-<h1>Edit Supplier</h1>
-<a href="/suppliers">Back to Suppliers</a>
+    <form action="/update_supplier" method="POST">
+        <input type="hidden" name="supplier_id" value="{{ supplier.supplier_id }}">
 
-<!-- Form to update supplier -->
-<form action="/suppliers/edit/{{ supplier[0] }}" method="POST">
+        <label>Supplier Name:</label><br>
+        <input type="text" name="name" value="{{ supplier.name }}" required><br><br>
 
-    <!-- Supplier name -->
-    <input type="text" name="name" value="{{ supplier[1] }}" required>
+        <label>Phone:</label><br>
+        <input type="text" name="phone" value="{{ supplier.phone }}"><br><br>
 
-    <!-- Phone -->
-    <input type="text" name="phone" value="{{ supplier[2] }}" required>
+        <label>Email:</label><br>
+        <input type="email" name="email" value="{{ supplier.email }}" required><br><br>
 
-    <!-- Email -->
-    <input type="email" name="email" value="{{ supplier[3] }}" required>
-
-    <!-- Submit button -->
-    <button type="submit">Update</button>
-
-</form>
-
+        <button type="submit">Update Supplier</button>
+    </form>
 </body>
 </html>

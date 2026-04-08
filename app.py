@@ -1,331 +1,298 @@
 from flask import Flask, render_template, request, redirect, url_for
-import mysql.connector
-from datetime import datetime
+import pymysql
 
 app = Flask(__name__)
 
-#forming database connection 
 def get_database():
-    return mysql.connector.connect(
+    return pymysql.connect(
         host='172.31.20.27',
         user='root',
         password='Drishty2005$',
-        database='InventoryDB'
+        db='InventoryDB',
+        cursorclass=pymysql.cursors.DictCursor
     )
 
-#Home
 @app.route('/')
 def home():
     return render_template('index.html')
 
-# Products:
-# Show all products
+# --- PRODUCTS SECTION ---
 @app.route('/products')
 def products():
     db = get_database()
-    cursor = db.cursor()  
-    cursor.execute("""
-        SELECT p.product_id, p.name, p.price, p.quantity, s.name
-        FROM Products p
-        LEFT JOIN Suppliers s ON p.supplier_id = s.supplier_id
-    """)
-    products = cursor.fetchall()
-    cursor.execute("SELECT * FROM Suppliers")
-    suppliers = cursor.fetchall()
-    db.close()
-    return render_template('products.html', products=products, suppliers=suppliers)
+    with db.cursor() as cursor:
+        cursor.execute("SELECT * FROM Products")
+        products_list = cursor.fetchall()
 
-# Add a new product
+        cursor.execute("SELECT supplier_id, name FROM Suppliers")
+        suppliers_list = cursor.fetchall()
+    db.close()
+    return render_template('products.html', products=products_list, suppliers=suppliers_list)
+
 @app.route('/add_product', methods=['POST'])
 def add_product():
+    name = request.form.get('name')
+    price = request.form.get('price')
+    quantity = request.form.get('quantity')
+    s_id = request.form.get('supplier_id')
+
     db = get_database()
-    cursor = db.cursor()
-    name = request.form['name']
-    price = request.form['price']
-    quantity = request.form['quantity']
-    supplier_id = request.form['supplier_id']
-    cursor.execute(
-        "INSERT INTO Products (name, price, quantity, supplier_id) VALUES (%s, %s, %s, %s)",
-        (name, price, quantity, supplier_id)
-    )
+    with db.cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO Products (name, price, quantity, supplier_id)
+            VALUES (%s, %s, %s, %s)
+        """, (name, price, quantity, s_id))
     db.commit()
     db.close()
     return redirect(url_for('products'))
 
-# Edit a product
-@app.route('/edit/<int:product_id>', methods=['GET', 'POST'])
-def edit_product(product_id):
+@app.route('/edit_product/<int:id>')
+def edit_product(id):
     db = get_database()
-    cursor = db.cursor()
-    if request.method == 'POST':
-        name = request.form['name']
-        price = request.form['price']
-        quantity = request.form['quantity']
-        supplier_id = request.form['supplier_id']
-        cursor.execute(
-            "UPDATE Products SET name=%s, price=%s, quantity=%s, supplier_id=%s WHERE product_id=%s",
-            (name, price, quantity, supplier_id, product_id)
-        )
-        db.commit()
-        db.close()
-        return redirect(url_for('products'))
-    cursor.execute("SELECT * FROM Products WHERE product_id=%s", (product_id,))
-    product = cursor.fetchone()
-    cursor.execute("SELECT * FROM Suppliers")
-    suppliers = cursor.fetchall()
-    db.close()
-    return render_template('editpage.html', product=product, suppliers=suppliers)
+    with db.cursor() as cursor:
+        cursor.execute("SELECT * FROM Products WHERE product_id = %s", (id,))
+        product_data = cursor.fetchone()
 
-# Delete a product
-@app.route('/delete/<int:product_id>')
-def delete_product(product_id):
+        cursor.execute("SELECT supplier_id, name FROM Suppliers")
+        suppliers_list = cursor.fetchall()
+    db.close()
+    return render_template('editpage.html', product=product_data, suppliers=suppliers_list)
+
+@app.route('/update_product', methods=['POST'])
+def update_product():
+    p_id = request.form.get('product_id')
+    name = request.form.get('name')
+    price = request.form.get('price')
+    qty = request.form.get('quantity')
+    s_id = request.form.get('supplier_id')
+
     db = get_database()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM Products WHERE product_id=%s", (product_id,))
+    with db.cursor() as cursor:
+        cursor.execute("""
+            UPDATE Products
+            SET name=%s, price=%s, quantity=%s, supplier_id=%s
+            WHERE product_id=%s
+        """, (name, price, qty, s_id, p_id))
     db.commit()
     db.close()
     return redirect(url_for('products'))
 
-# Suppliers:
-# Show all suppliers
+@app.route('/delete_product/<int:id>')
+def delete_product(id):
+    db = get_database()
+    with db.cursor() as cursor:
+        cursor.execute("DELETE FROM Products WHERE product_id = %s", (id,))
+    db.commit()
+    db.close()
+    return redirect(url_for('products'))
+
+# --- SUPPLIERS SECTION ---
 @app.route('/suppliers')
 def suppliers():
     db = get_database()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM Suppliers")
-    suppliers = cursor.fetchall()
+    with db.cursor() as cursor:
+        cursor.execute("SELECT supplier_id, name, phone, email FROM Suppliers")
+        suppliers_list = cursor.fetchall()
     db.close()
-    return render_template('suppliers.html', suppliers=suppliers)
+    return render_template('suppliers.html', suppliers=suppliers_list)
 
-# Add a new supplier
 @app.route('/add_supplier', methods=['POST'])
 def add_supplier():
+    name = request.form.get('name')
+    phone = request.form.get('phone')
+    email = request.form.get('email')
+
     db = get_database()
-    cursor = db.cursor()
-    name = request.form['name']
-    phone = request.form['phone']
-    email = request.form['email']
-    cursor.execute(
-        "INSERT INTO Suppliers (name, phone, email) VALUES (%s, %s, %s)",
-        (name, phone, email)
-    )
+    with db.cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO Suppliers (name, phone, email)
+            VALUES (%s, %s, %s)
+        """, (name, phone, email))
     db.commit()
     db.close()
     return redirect(url_for('suppliers'))
 
-# Edit a supplier
-@app.route('/suppliers/edit/<int:supplier_id>', methods=['GET', 'POST'])
-def edit_supplier(supplier_id):
+@app.route('/edit_supplier/<int:id>')
+def edit_supplier(id):
     db = get_database()
-    cursor = db.cursor()
-    if request.method == 'POST':
-        name = request.form['name']
-        phone = request.form['phone']
-        email = request.form['email']
-        cursor.execute(
-            "UPDATE Suppliers SET name=%s, phone=%s, email=%s WHERE supplier_id=%s",
-            (name, phone, email, supplier_id)
-        )
-        db.commit()
-        db.close()
-        return redirect(url_for('suppliers'))
-    cursor.execute("SELECT * FROM Suppliers WHERE supplier_id=%s", (supplier_id,))
-    supplier = cursor.fetchone()
+    with db.cursor() as cursor:
+        cursor.execute("SELECT * FROM Suppliers WHERE supplier_id = %s", (id,))
+        supplier_data = cursor.fetchone()
     db.close()
-    return render_template('editsupplier.html', supplier=supplier)
+    return render_template('editsupplier.html', supplier=supplier_data)
 
-# Delete a supplier
-@app.route('/delete_supplier/<int:supplier_id>')
-def delete_supplier(supplier_id):
+@app.route('/update_supplier', methods=['POST'])
+def update_supplier():
+    s_id = request.form.get('supplier_id')
+    name = request.form.get('name')
+    phone = request.form.get('phone')
+    email = request.form.get('email')
+
     db = get_database()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM Suppliers WHERE supplier_id=%s", (supplier_id,))
+    with db.cursor() as cursor:
+        cursor.execute("UPDATE Suppliers SET name=%s, phone=%s, email=%s WHERE supplier_id=%s",
+                       (name, phone, email, s_id))
     db.commit()
     db.close()
     return redirect(url_for('suppliers'))
 
+@app.route('/delete_supplier/<int:id>')
+def delete_supplier(id):
+    db = get_database()
+    with db.cursor() as cursor:
+        cursor.execute("DELETE FROM Suppliers WHERE supplier_id = %s", (id,))
+    db.commit()
+    db.close()
+    return redirect(url_for('suppliers'))
 
-# Sales:
-# Show all sales
-# Sales:
-# Show all sales
+# --- SALES SECTION ---
 @app.route('/sales')
 def sales():
     db = get_database()
-    cursor = db.cursor()
-    cursor.execute("""
-        SELECT s.sale_id, p.name, s.quantity, DATE(s.sale_date)
-        FROM Sales s
-        JOIN Products p ON s.product_id = p.product_id
-    """)
-    sales = cursor.fetchall()
-    cursor.execute("SELECT * FROM Products")
-    products = cursor.fetchall()
-    db.close()
-    return render_template('sales.html', sales=sales, products=products)
+    with db.cursor() as cursor:
+        cursor.execute("SELECT product_id, name FROM Products")
+        products_list = cursor.fetchall()
 
-# Add a new sale
+        cursor.execute("""
+            SELECT s.sale_id, p.name AS product_name, s.quantity, s.sale_date
+            FROM Sales s
+            JOIN Products p ON s.product_id = p.product_id
+        """)
+        sales_list = cursor.fetchall()
+    db.close()
+    return render_template('sales.html', sales=sales_list, products=products_list)
+
 @app.route('/add_sale', methods=['POST'])
 def add_sale():
+    p_id = request.form.get('product_id')
+    qty = request.form.get('quantity')
+
     db = get_database()
-    cursor = db.cursor()
-    product_id = request.form['product_id']
-    quantity = request.form['quantity']
-    sale_date = request.form['sale_date']
-    cursor.execute("SELECT user_id FROM Users LIMIT 1")
-    user = cursor.fetchone()
-    if user is None:
-        db.close()
-        return "No users exist. Please add a user first before recording a sale.", 400
-    user_id = user[0]
-    cursor.execute(
-        "INSERT INTO Sales (product_id, user_id, quantity, sale_date) VALUES (%s, %s, %s, %s)",
-        (product_id, user_id, quantity, sale_date)
-    )
+    with db.cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO Sales (product_id, quantity, user_id)
+            VALUES (%s, %s, %s)
+        """, (p_id, qty, 1))
     db.commit()
     db.close()
     return redirect(url_for('sales'))
 
-# Edit a sale
-@app.route('/edit_sale/<int:sale_id>', methods=['GET', 'POST'])
-def edit_sale(sale_id):
+@app.route('/delete_sale/<int:id>')
+def delete_sale(id):
     db = get_database()
-    cursor = db.cursor()
-    if request.method == 'POST':
-        product_id = request.form['product_id']
-        quantity = request.form['quantity']
-        sale_date = request.form['sale_date']
-        cursor.execute(
-            "UPDATE Sales SET product_id=%s, quantity=%s, sale_date=%s WHERE sale_id=%s",
-            (product_id, quantity, sale_date, sale_id)
-        )
-        db.commit()
-        db.close()
-        return redirect(url_for('sales'))
-    cursor.execute("SELECT * FROM Sales WHERE sale_id=%s", (sale_id,))
-    sale = cursor.fetchone()
-    cursor.execute("SELECT * FROM Products")
-    products = cursor.fetchall()
-    db.close()
-    return render_template('editsale.html', sale=sale, products=products)
-
-# Delete a sale
-@app.route('/delete_sale/<int:sale_id>')
-def delete_sale(sale_id):
-    db = get_database()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM Sales WHERE sale_id=%s", (sale_id,))
+    with db.cursor() as cursor:
+        cursor.execute("DELETE FROM Sales WHERE sale_id = %s", (id,))
     db.commit()
     db.close()
     return redirect(url_for('sales'))
 
-# Users:
-# Show all users
+# --- USERS SECTION ---
 @app.route('/users')
 def users():
     db = get_database()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM Users")
-    users = cursor.fetchall()
+    with db.cursor() as cursor:
+        cursor.execute("SELECT user_id, name, email, role FROM Users")
+        users_list = cursor.fetchall()
     db.close()
-    return render_template('users.html', users=users)
+    return render_template('users.html', users=users_list)
 
-# Add a new user
 @app.route('/add_user', methods=['POST'])
 def add_user():
+    name = request.form.get('name')
+    email = request.form.get('email')
+    role = request.form.get('role')
+
     db = get_database()
-    cursor = db.cursor()
-    name = request.form['name']
-    email = request.form['email']
-    password = request.form['password']
-    role = request.form['role']
-    cursor.execute(
-        "INSERT INTO Users (name, email, password, role) VALUES (%s, %s, %s, %s)",
-        (name, email, password, role)
-    )
+    with db.cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO Users (name, email, role)
+            VALUES (%s, %s, %s)
+        """, (name, email, role))
     db.commit()
     db.close()
     return redirect(url_for('users'))
 
-# Edit a user
-@app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
-def edit_user(user_id):
+@app.route('/edit_user/<int:id>')
+def edit_user(id):
     db = get_database()
-    cursor = db.cursor()
-    if request.method == 'POST':
-        name = request.form['name']
-        email = request.form['email']
-        role = request.form['role']
-        cursor.execute(
-            "UPDATE Users SET name=%s, email=%s, role=%s WHERE user_id=%s",
-            (name, email, role, user_id)
-        )
-        db.commit()
-        db.close()
-        return redirect(url_for('users'))
-    cursor.execute("SELECT * FROM Users WHERE user_id=%s", (user_id,))
-    user = cursor.fetchone()
+    with db.cursor() as cursor:
+        cursor.execute("SELECT * FROM Users WHERE user_id = %s", (id,))
+        user_data = cursor.fetchone()
     db.close()
-    return render_template('edituser.html', user=user)
+    return render_template('edituser.html', user=user_data)
 
-# Delete a user
-@app.route('/delete_user/<int:user_id>')
-def delete_user(user_id):
+@app.route('/update_user', methods=['POST'])
+def update_user():
+    u_id = request.form.get('user_id')
+    name = request.form.get('name')
+    email = request.form.get('email')
+    role = request.form.get('role')
+
     db = get_database()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM Users WHERE user_id=%s", (user_id,))
+    with db.cursor() as cursor:
+        cursor.execute("""
+            UPDATE Users
+            SET name=%s, email=%s, role=%s
+            WHERE user_id=%s
+        """, (name, email, role, u_id))
     db.commit()
     db.close()
     return redirect(url_for('users'))
 
+@app.route('/delete_user/<int:id>')
+def delete_user(id):
+    db = get_database()
+    with db.cursor() as cursor:
+        cursor.execute("DELETE FROM Users WHERE user_id = %s", (id,))
+    db.commit()
+    db.close()
+    return redirect(url_for('users'))
 
-# Purchase orders:
-# Show all orders
+# --- ORDERS SECTION ---
 @app.route('/orders')
 def orders():
     db = get_database()
-    cursor = db.cursor()
-    cursor.execute("""
-        SELECT po.purchase_id, p.name, s.name, po.quantity, po.order_date
-        FROM PurchaseOrders po
-        JOIN Products p ON po.product_id = p.product_id
-        JOIN Suppliers s ON po.supplier_id = s.supplier_id
-    """)
-    orders = cursor.fetchall()
-    cursor.execute("SELECT * FROM Products")
-    products = cursor.fetchall()
-    cursor.execute("SELECT * FROM Suppliers")
-    suppliers = cursor.fetchall()
-    db.close()
-    return render_template('orders.html', orders=orders, products=products, suppliers=suppliers)
+    with db.cursor() as cursor:
+        cursor.execute("""
+            SELECT o.order_id, p.name AS product_name, s.name AS supplier_name,
+                   o.quantity, o.order_date
+            FROM Orders o
+            LEFT JOIN Products p ON o.product_id = p.product_id
+            LEFT JOIN Suppliers s ON p.supplier_id = s.supplier_id
+        """)
+        orders_list = cursor.fetchall()
 
-# Add a new order
+        cursor.execute("SELECT product_id, name FROM Products")
+        products_list = cursor.fetchall()
+
+        cursor.execute("SELECT supplier_id, name FROM Suppliers")
+        suppliers_list = cursor.fetchall()
+    db.close()
+    return render_template('orders.html', orders=orders_list, products=products_list, suppliers=suppliers_list)
+
 @app.route('/add_order', methods=['POST'])
 def add_order():
+    p_id = request.form.get('product_id')
+    qty = request.form.get('quantity')
+
     db = get_database()
-    cursor = db.cursor()
-    product_id = request.form['product_id']
-    supplier_id = request.form['supplier_id']
-    quantity = request.form['quantity']
-    order_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    cursor.execute(
-        "INSERT INTO PurchaseOrders (product_id, supplier_id, quantity, order_date) VALUES (%s, %s, %s, %s)",
-        (product_id, supplier_id, quantity, order_date)
-    )
+    with db.cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO Orders (product_id, quantity, user_id)
+            VALUES (%s, %s, %s)
+        """, (p_id, qty, 1))
     db.commit()
     db.close()
     return redirect(url_for('orders'))
 
-# Delete an order
-@app.route('/delete_order/<int:purchase_id>')
-def delete_order(purchase_id):
+@app.route('/delete_order/<int:id>')
+def delete_order(id):
     db = get_database()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM PurchaseOrders WHERE purchase_id=%s", (purchase_id,))
+    with db.cursor() as cursor:
+        cursor.execute("DELETE FROM Orders WHERE order_id = %s", (id,))
     db.commit()
     db.close()
     return redirect(url_for('orders'))
 
-#to run the app
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

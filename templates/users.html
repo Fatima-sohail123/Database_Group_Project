@@ -1,3 +1,4 @@
+  GNU nano 7.2                                                       templates/users.html
 <!DOCTYPE html>
 <html>
 <head>
@@ -8,33 +9,37 @@
 <h1>Users</h1>
 <a href="/">Back to Home</a>
 
-<!-- Add user form -->
-<h2>Add User</h2>
+<h2>Add New User</h2>
 <form action="/add_user" method="POST">
-    <input type="text" name="name" placeholder="Name" required>
-    <input type="email" name="email" placeholder="Email" required>
-    <input type="password" name="password" placeholder="Password" required>
+    <input type="text" name="name" placeholder="Full Name" required>
+    <input type="email" name="email" placeholder="Email Address" required>
     <select name="role">
-        <option value="admin">Admin</option>
-        <option value="staff">Staff</option>
+        <option value="Employee">Employee</option>
+        <option value="Admin">Admin</option>
     </select>
     <button type="submit">Add User</button>
 </form>
 
-<!-- User table -->
+<hr>
+
 <h2>User List</h2>
 <table border="1">
-    <tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Action</th>
+    </tr>
     {% for u in users %}
     <tr>
-        <td>{{ u[0] }}</td>
-        <td>{{ u[1] }}</td>
-        <td>{{ u[2] }}</td>
-        <td>{{ u[4] }}</td>
+        <td>{{ u.user_id }}</td>
+        <td>{{ u.name }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.role }}</td>
         <td>
-            <a href="/users/edit/{{ u[0] }}">Edit</a> |
-            <a href="/delete_user/{{ u[0] }}">Delete</a>
-        </td>
+            <a href="/edit_user/{{ u.user_id }}">Edit</a> |
+            <a href="/delete_user/{{ u.user_id }}" onclick="return confirm('Delete this user?')">Delete</a>
     </tr>
     {% endfor %}
 </table>
